@@ -2,12 +2,17 @@ import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { VirtualItem } from '@tanstack/react-virtual';
 import type { Phone } from '@/lib/schema';
+import type { PhoneEvidence } from '@/lib/ai/types';
+import { PhoneImage } from '@/components/PhoneImage';
 import { formatCamera, formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import './specs.css';
 
 type SpecsTableProps = {
   phones: Phone[];
   visible: Phone[];
+  evidence?: PhoneEvidence[];
+  currency?: string;
 };
 
 type SpecDefinition = {
@@ -27,22 +32,22 @@ const SPECS: SpecDefinition[] = [
     metric: (p) => p.price,
     prefer: 'min',
   },
-  { key: 'cpu', label: 'CPU Model', render: (p) => p.cpu },
+  { key: 'cpu', label: 'CPU Model', render: (p) => p.cpu ?? 'Unknown' },
   {
     key: 'battery',
     label: 'Battery Size',
-    render: (p) => `${p.batteryMah} mAh`,
+    render: (p) => p.batteryMah === null ? 'Unknown' : `${p.batteryMah} mAh`,
     metric: (p) => p.batteryMah,
     prefer: 'max',
   },
-  { key: 'screen', label: 'Screen Technology', render: (p) => p.screen.tech },
+  { key: 'screen', label: 'Screen Technology', render: (p) => p.screen.tech ?? 'Unknown' },
   {
     key: 'rearCam',
     label: 'Rear Cameras',
-    render: (p) => p.cameras.rear.map((module) => formatCamera(module.mp, module.type)).join('\n'),
+    render: (p) => p.cameras.rear?.map((module) => formatCamera(module.mp, module.type)).join('\n') ?? 'Unknown',
     multiline: true,
     metric: (p) =>
-      p.cameras.rear.length
+      p.cameras.rear?.length
         ? Math.max(...p.cameras.rear.map((module) => module.mp ?? 0))
         : null,
     prefer: 'max',
@@ -50,54 +55,54 @@ const SPECS: SpecDefinition[] = [
   {
     key: 'frontCam',
     label: 'Front Camera',
-    render: (p) => formatCamera(p.cameras.frontMp),
-    metric: (p) => (p.cameras.frontMp ?? 0),
+    render: (p) => p.cameras.frontMp === null ? 'Unknown' : formatCamera(p.cameras.frontMp),
+    metric: (p) => p.cameras.frontMp,
     prefer: 'max',
   },
   {
     key: 'refresh',
     label: 'Refresh Rate',
-    render: (p) => `${p.refreshHz} Hz`,
+    render: (p) => p.refreshHz === null ? 'Unknown' : `${p.refreshHz} Hz`,
     metric: (p) => p.refreshHz,
     prefer: 'max',
   },
   {
     key: 'size',
     label: 'Screen Size',
-    render: (p) => `${p.screen.sizeIn}"`,
+    render: (p) => p.screen.sizeIn === null ? 'Unknown' : `${p.screen.sizeIn}"`,
     metric: (p) => p.screen.sizeIn,
     prefer: 'max',
   },
   {
     key: 'charging',
     label: 'Charging Speed',
-    render: (p) => `${p.chargingW} W`,
+    render: (p) => p.chargingW === null ? 'Unknown' : `${p.chargingW} W`,
     metric: (p) => p.chargingW,
     prefer: 'max',
   },
-  { key: 'video', label: 'Video Recording', render: (p) => p.video || '—' },
+  { key: 'video', label: 'Video Recording', render: (p) => p.video === null ? 'Unknown' : p.video || '—' },
   {
     key: 'wireless',
     label: 'Wireless Charging',
-    render: (p) => (p.wirelessW ? `Yes (${p.wirelessW} W)` : 'No'),
-    metric: (p) => (p.wirelessW ? p.wirelessW : 0),
+    render: (p) => p.wirelessW === null ? 'Unknown' : (p.wirelessW ? `Yes (${p.wirelessW} W)` : 'No'),
+    metric: (p) => p.wirelessW,
     prefer: 'max',
   },
-  { key: 'resolution', label: 'Resolution', render: (p) => p.screen.resolution },
+  { key: 'resolution', label: 'Resolution', render: (p) => p.screen.resolution ?? 'Unknown' },
   {
     key: 'headphone',
     label: '3.5mm Jack',
-    render: (p) => (p.features.headphone ? 'Yes' : 'No'),
-    metric: (p) => (p.features.headphone ? 1 : 0),
+    render: (p) => p.features.headphone === null ? 'Unknown' : (p.features.headphone ? 'Yes' : 'No'),
+    metric: (p) => p.features.headphone === null ? null : (p.features.headphone ? 1 : 0),
     prefer: 'max',
   },
-  { key: 'sim', label: 'SIM', render: (p) => p.features.sim },
+  { key: 'sim', label: 'SIM', render: (p) => p.features.sim ?? 'Unknown' },
 ];
 
 const ESTIMATED_COLUMN_WIDTH = 240;
 const VIRTUALIZATION_MIN_COLUMNS = 6;
 
-export function SpecsTable({ phones, visible }: SpecsTableProps) {
+export function SpecsTable({ phones, visible, evidence, currency = 'NGN' }: SpecsTableProps) {
   const visibleNames = useMemo(() => new Set(visible.map((phone) => phone.name)), [visible]);
   const orderedVisible = useMemo(
     () => phones.filter((phone) => visibleNames.has(phone.name)),
@@ -208,18 +213,25 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
   if (!orderedVisible.length) {
     return (
       <div
-        className="card p-6 text-center text-sm text-fg-muted/80"
+        className="sc-spec-empty"
+        role="status"
         data-testid="specs-empty-state"
       >
-        No phones match the selected filters.
+        <p>No phones match the selected filters.</p>
+        <p>Clear a filter or widen the price range to compare phones.</p>
       </div>
     );
   }
 
   return (
+    <section className="sc-comparison">
+      <div className="sc-comparison-note">
+        <p>{orderedVisible.length} {orderedVisible.length === 1 ? 'model' : 'models'} in comparison</p>
+        <p><span className="sc-best-key" aria-hidden="true" /> Highlighted cells lead on that specification.</p>
+      </div>
     <div
       ref={scrollRef}
-      className="card scroll-mask overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg))]"
+      className="sc-spec-scroll"
       role="region"
       aria-label="Phone comparison results"
       aria-describedby={scrollHintId}
@@ -227,36 +239,43 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
       data-testid="specs-table-scroll"
       data-columns={orderedVisible.length}
     >
-      <span id={scrollHintId} className="sr-only">
-        Scroll horizontally to review all phone specifications.
-      </span>
-      <table className="w-full min-w-max border-collapse text-sm">
-        <thead className="sticky top-0 z-10">
+      <p id={scrollHintId} className="sc-scroll-hint">
+        Scroll horizontally to review all models. Keyboard: focus this table, then use the arrow keys.
+      </p>
+      <table className="sc-spec-table" aria-colcount={orderedVisible.length + 1}>
+        <caption className="sc-spec-sr-only">Phone specifications. Highlighted cells have the lowest price or highest numeric specification among the filtered models, including ties.</caption>
+        <thead>
           <tr>
-            <th className="sticky left-0 z-20 bg-[hsl(var(--bg))] px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.24em] text-fg-muted shadow-[inset_-1px_0_0_rgba(148,163,184,0.35)]">
+            <th scope="col" className="sc-spec-axis">
               Specification
             </th>
             {hasVirtualColumns && paddingStart > 0 && (
               <th
                 aria-hidden
-                className="p-0"
+                className="sc-spec-spacer"
                 style={{ width: paddingStart, minWidth: paddingStart, border: 'none' }}
               />
             )}
             {columnsToRender.map((column) => {
               const phone = orderedVisible[column.index];
+              const phoneEvidence = evidence?.find((item) => item.name === phone.name);
               return (
                 <th
                   key={phone.name}
                   ref={hasVirtualColumns ? measureColumn : undefined}
                   data-index={column.index}
-                  className="bg-gradient-to-r from-[hsl(var(--accent-from))/0.22] to-[hsl(var(--accent-to))/0.18] px-4 py-3 text-left text-sm font-semibold text-[hsl(var(--accent))] shadow-[0_14px_26px_-20px_rgba(79,70,229,0.6)]"
+                  scope="col"
+                  aria-colindex={column.index + 2}
+                  className="sc-model-heading"
                   style={
                     hasVirtualColumns
                       ? { width: column.size, minWidth: column.size }
                       : undefined
                   }
                 >
+                  {phoneEvidence?.imageUrl && phoneEvidence.imageSource && (
+                    <div className="sc-model-thumbnail"><PhoneImage evidence={phoneEvidence} name={phone.name} /></div>
+                  )}
                   {phone.name}
                 </th>
               );
@@ -264,7 +283,7 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
             {hasVirtualColumns && paddingEnd > 0 && (
               <th
                 aria-hidden
-                className="p-0"
+                className="sc-spec-spacer"
                 style={{ width: paddingEnd, minWidth: paddingEnd, border: 'none' }}
               />
             )}
@@ -274,31 +293,32 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
           {SPECS.map((spec) => {
             const winners = highlightWinners.get(spec.key);
             return (
-              <tr key={spec.key} className="specs-row border-t border-[hsl(var(--border))] align-top">
+              <tr key={spec.key} className="sc-spec-row">
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 bg-[hsl(var(--bg))] px-4 py-3 text-left text-sm font-medium text-fg shadow-[inset_-1px_0_0_rgba(148,163,184,0.25)]"
+                  className="sc-spec-axis"
                 >
-                  {spec.label}
+                  {spec.key === 'price' ? `Price (${currency})` : spec.label}
                 </th>
                 {hasVirtualColumns && paddingStart > 0 && (
                   <td
                     aria-hidden
-                    className="p-0"
+                    className="sc-spec-spacer"
                     style={{ width: paddingStart, minWidth: paddingStart, border: 'none' }}
                   />
                 )}
                 {columnsToRender.map((column) => {
                   const phone = orderedVisible[column.index];
-                  const cellValue = spec.render(phone);
+                  const cellValue = spec.key === 'price' ? formatCurrency(phone.price, currency) : spec.render(phone);
                   const isWinner = winners?.has(column.index) ?? false;
                   return (
                     <td
                       key={`${phone.name}-${spec.key}`}
                       data-index={column.index}
+                      aria-colindex={column.index + 2}
                       className={cn(
-                        'px-4 py-3 text-sm text-fg-muted transition-colors duration-150 ease-out',
-                        isWinner && 'specs-winner'
+                        'sc-spec-cell',
+                        isWinner && 'sc-spec-winner'
                       )}
                       style={{
                         ...(hasVirtualColumns
@@ -318,7 +338,7 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
                 {hasVirtualColumns && paddingEnd > 0 && (
                   <td
                     aria-hidden
-                    className="p-0"
+                    className="sc-spec-spacer"
                     style={{ width: paddingEnd, minWidth: paddingEnd, border: 'none' }}
                   />
                 )}
@@ -328,5 +348,6 @@ export function SpecsTable({ phones, visible }: SpecsTableProps) {
         </tbody>
       </table>
     </div>
+    </section>
   );
 }

@@ -1,6 +1,6 @@
-import type { Phone } from './schema';
+import type { Phone } from "./schema";
 
-export type WirelessOption = 'Yes' | 'No';
+export type WirelessOption = "Yes" | "No";
 
 export type FilterState = {
   query: string;
@@ -24,7 +24,7 @@ export type SerializedFilterState = {
   wireless: WirelessOption[];
 };
 
-export const WIRELESS_OPTIONS: WirelessOption[] = ['Yes', 'No'];
+export const WIRELESS_OPTIONS: WirelessOption[] = ["Yes", "No"];
 
 export type FilterOptions = {
   cpu: string[];
@@ -34,14 +34,15 @@ export type FilterOptions = {
   chargingW: number[];
   wireless: WirelessOption[];
   priceRange: [number, number];
+  priceCount?: number;
 };
 
 export function createInitialFilters(phones: Phone[]): FilterState {
-  const prices = phones.map(p => p.price).sort((a, b) => a - b);
+  const prices = phones.map((p) => p.price).filter((price): price is number => price !== null).sort((a, b) => a - b);
   const minPrice = prices[0] ?? 0;
   const maxPrice = prices[prices.length - 1] ?? minPrice;
   return {
-    query: '',
+    query: "",
     priceRange: [minPrice, maxPrice],
     cpu: new Set(),
     batteryMah: new Set(),
@@ -55,16 +56,36 @@ export function createInitialFilters(phones: Phone[]): FilterState {
 export function applyFilters(phones: Phone[], filters: FilterState): Phone[] {
   const term = filters.query.trim().toLowerCase();
   const [minPrice, maxPrice] = filters.priceRange;
+  const initialPriceRange = createInitialFilters(phones).priceRange;
+  const priceActive = minPrice !== initialPriceRange[0] || maxPrice !== initialPriceRange[1];
 
-  return phones.filter(phone => {
-    if (phone.price < minPrice || phone.price > maxPrice) return false;
-    if (filters.cpu.size && !filters.cpu.has(phone.cpu)) return false;
-    if (filters.screenTech.size && !filters.screenTech.has(phone.screen.tech)) return false;
-    if (filters.batteryMah.size && !filters.batteryMah.has(phone.batteryMah)) return false;
-    if (filters.refreshHz.size && !filters.refreshHz.has(phone.refreshHz)) return false;
-    if (filters.chargingW.size && !filters.chargingW.has(phone.chargingW)) return false;
+  return phones.filter((phone) => {
+    if (phone.price === null ? priceActive : phone.price < minPrice || phone.price > maxPrice) return false;
+    if (filters.cpu.size && (phone.cpu === null || !filters.cpu.has(phone.cpu)))
+      return false;
+    if (
+      filters.screenTech.size &&
+      (phone.screen.tech === null || !filters.screenTech.has(phone.screen.tech))
+    )
+      return false;
+    if (
+      filters.batteryMah.size &&
+      (phone.batteryMah === null || !filters.batteryMah.has(phone.batteryMah))
+    )
+      return false;
+    if (
+      filters.refreshHz.size &&
+      (phone.refreshHz === null || !filters.refreshHz.has(phone.refreshHz))
+    )
+      return false;
+    if (
+      filters.chargingW.size &&
+      (phone.chargingW === null || !filters.chargingW.has(phone.chargingW))
+    )
+      return false;
     if (filters.wireless.size) {
-      const hasWireless: WirelessOption = phone.wirelessW > 0 ? 'Yes' : 'No';
+      if (phone.wirelessW === null) return false;
+      const hasWireless: WirelessOption = phone.wirelessW > 0 ? "Yes" : "No";
       if (!filters.wireless.has(hasWireless)) return false;
     }
     if (term) {
@@ -100,23 +121,35 @@ export function serializeFilters(filters: FilterState): SerializedFilterState {
 
 export function deserializeFilters(
   serialized: Partial<SerializedFilterState> | null,
-  fallback: FilterState
+  fallback: FilterState,
 ): FilterState {
   if (!serialized) return fallback;
 
-  const priceRange = Array.isArray(serialized.priceRange) && serialized.priceRange.length === 2
-    ? serialized.priceRange as [number, number]
-    : fallback.priceRange;
+  const priceRange =
+    Array.isArray(serialized.priceRange) && serialized.priceRange.length === 2
+      ? (serialized.priceRange as [number, number])
+      : fallback.priceRange;
 
   try {
     return {
-      query: typeof serialized.query === 'string' ? serialized.query : fallback.query,
+      query:
+        typeof serialized.query === "string"
+          ? serialized.query
+          : fallback.query,
       priceRange,
       cpu: new Set(serialized.cpu ?? Array.from(fallback.cpu)),
-      batteryMah: new Set(serialized.batteryMah ?? Array.from(fallback.batteryMah)),
-      screenTech: new Set(serialized.screenTech ?? Array.from(fallback.screenTech)),
-      refreshHz: new Set(serialized.refreshHz ?? Array.from(fallback.refreshHz)),
-      chargingW: new Set(serialized.chargingW ?? Array.from(fallback.chargingW)),
+      batteryMah: new Set(
+        serialized.batteryMah ?? Array.from(fallback.batteryMah),
+      ),
+      screenTech: new Set(
+        serialized.screenTech ?? Array.from(fallback.screenTech),
+      ),
+      refreshHz: new Set(
+        serialized.refreshHz ?? Array.from(fallback.refreshHz),
+      ),
+      chargingW: new Set(
+        serialized.chargingW ?? Array.from(fallback.chargingW),
+      ),
       wireless: new Set(serialized.wireless ?? Array.from(fallback.wireless)),
     };
   } catch {
@@ -125,8 +158,9 @@ export function deserializeFilters(
 }
 
 export function buildFilterOptions(phones: Phone[]): FilterOptions {
-  const unique = <T>(iterable: T[]) => Array.from(new Set(iterable));
-  const prices = phones.map((p) => p.price).sort((a, b) => a - b);
+  const unique = <T>(iterable: (T | null)[]) =>
+    Array.from(new Set(iterable.filter((value): value is T => value !== null)));
+  const prices = phones.map((p) => p.price).filter((price): price is number => price !== null).sort((a, b) => a - b);
   return {
     cpu: unique(phones.map((p) => p.cpu)).sort(),
     batteryMah: unique(phones.map((p) => p.batteryMah)).sort((a, b) => a - b),
@@ -135,5 +169,6 @@ export function buildFilterOptions(phones: Phone[]): FilterOptions {
     chargingW: unique(phones.map((p) => p.chargingW)).sort((a, b) => a - b),
     wireless: WIRELESS_OPTIONS,
     priceRange: [prices[0] ?? 0, prices[prices.length - 1] ?? 0],
+    priceCount: prices.length,
   };
 }

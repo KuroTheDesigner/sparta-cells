@@ -29,7 +29,7 @@ describe('normalizePhones', () => {
     expect(phone.chargingW).toBe(80);
     expect(phone.wirelessW).toBe(30);
     expect(phone.cameras.rear).toHaveLength(2);
-    expect(phone.cameras.rear[0]).toMatchObject({ mp: 50, type: 'Wide' });
+    expect(phone.cameras.rear?.[0]).toMatchObject({ mp: 50, type: 'Wide' });
     expect(phone.cameras.frontMp).toBe(32);
   });
 });

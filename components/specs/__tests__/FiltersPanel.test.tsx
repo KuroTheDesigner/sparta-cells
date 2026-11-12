@@ -30,7 +30,7 @@ const options: FilterOptions = {
   refreshHz: [120],
   chargingW: [30],
   wireless,
-  priceRange: [phones[0].price, phones[0].price],
+  priceRange: filters.priceRange,
 };
 
 describe('FiltersPanel', () => {
