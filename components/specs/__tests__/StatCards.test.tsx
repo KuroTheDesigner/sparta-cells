@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { StatCards } from '@/components/specs/StatCards';
 import type { StatBundle } from '@/lib/stats';
 
@@ -27,11 +27,12 @@ describe('StatCards', () => {
       'Largest Screen',
       'Best Camera',
     ];
-    for (const title of expectedTitles) {
-      expect(screen.getByText(title)).toBeInTheDocument();
-    }
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(expectedTitles);
+    const expected = [stats.battery, stats.charging, stats.refresh, stats.bestValue, stats.largestScreen, stats.bestCamera];
+    screen.getAllByRole('article').forEach((article, index) => {
+      expect(within(article).getByText(expected[index].value)).toBeInTheDocument();
+      expect(within(article).getByText(expected[index].phone)).toBeInTheDocument();
+      expect(article).not.toHaveAttribute('tabindex');
+    });
   });
 });
-
-
-

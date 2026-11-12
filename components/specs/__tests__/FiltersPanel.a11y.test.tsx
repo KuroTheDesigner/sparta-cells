@@ -31,7 +31,7 @@ const options: FilterOptions = {
   refreshHz: [120],
   chargingW: [65],
   wireless,
-  priceRange: [phones[0].price, phones[0].price],
+  priceRange: filters.priceRange,
 };
 
 describe('FiltersPanel accessibility', () => {

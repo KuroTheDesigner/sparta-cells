@@ -1,11 +1,7 @@
-import type { Phone } from './schema';
+import type { Phone } from "./schema";
+import { formatCurrency } from "./format";
 
-export type StatSummary = {
-  title: string;
-  value: string;
-  phone: string;
-};
-
+export type StatSummary = { title: string; value: string; phone: string };
 export type StatBundle = {
   battery: StatSummary;
   charging: StatSummary;
@@ -15,56 +11,62 @@ export type StatBundle = {
   bestCamera: StatSummary;
 };
 
-const formatter = new Intl.NumberFormat('en-NG', {
-  style: 'currency',
-  currency: 'NGN',
-  maximumFractionDigits: 0,
-});
-
-function bestBy(list: Phone[], pick: (phone: Phone) => number): Phone {
-  return list.reduce((best, phone) => (pick(phone) > pick(best) ? phone : best), list[0]);
-}
-
-export function computeStats(phones: Phone[]): StatBundle | null {
+export function computeStats(
+  phones: Phone[],
+  currency = "NGN",
+): StatBundle | null {
   if (!phones.length) return null;
-
-  const batteryPhone = bestBy(phones, (p) => p.batteryMah);
-  const chargingPhone = bestBy(phones, (p) => p.chargingW);
-  const refreshPhone = bestBy(phones, (p) => p.refreshHz);
-  const largestScreen = bestBy(phones, (p) => p.screen.sizeIn);
-  const bestCamera = bestBy(phones, (p) => p.cameras.rear[0]?.mp ?? 0);
-  const bestValue = [...phones].sort((a, b) => a.price - b.price)[0];
-
+  const highest = (
+    title: string,
+    pick: (phone: Phone) => number | null,
+    format: (value: number) => string,
+  ): StatSummary => {
+    let winner: Phone | undefined,
+      value: number | null = null;
+    for (const phone of phones) {
+      const candidate = pick(phone);
+      if (candidate !== null && (value === null || candidate > value)) {
+        winner = phone;
+        value = candidate;
+      }
+    }
+    return {
+      title,
+      value: value === null ? "Unknown" : format(value),
+      phone: winner?.name || "No sourced value",
+    };
+  };
+  const cheapest = phones.filter((phone): phone is Phone & {price: number} => phone.price !== null).sort((a, b) => a.price - b.price)[0];
   return {
-    battery: {
-      title: 'Best Battery',
-      value: `${batteryPhone.batteryMah} mAh`,
-      phone: batteryPhone.name,
-    },
-    charging: {
-      title: 'Fastest Charging',
-      value: `${chargingPhone.chargingW} W`,
-      phone: chargingPhone.name,
-    },
-    refresh: {
-      title: 'Highest Refresh',
-      value: `${refreshPhone.refreshHz} Hz`,
-      phone: refreshPhone.name,
-    },
+    battery: highest(
+      "Best Battery",
+      (p) => p.batteryMah,
+      (v) => `${v} mAh`,
+    ),
+    charging: highest(
+      "Fastest Charging",
+      (p) => p.chargingW,
+      (v) => `${v} W`,
+    ),
+    refresh: highest(
+      "Highest Refresh",
+      (p) => p.refreshHz,
+      (v) => `${v} Hz`,
+    ),
     bestValue: {
-      title: 'Best Value',
-      value: formatter.format(bestValue.price),
-      phone: bestValue.name,
+      title: "Best Value",
+      value: formatCurrency(cheapest?.price ?? null, currency),
+      phone: cheapest?.name ?? "No sourced price",
     },
-    largestScreen: {
-      title: 'Largest Screen',
-      value: `${largestScreen.screen.sizeIn}"`,
-      phone: largestScreen.name,
-    },
-    bestCamera: {
-      title: 'Best Camera',
-      value: `${bestCamera.cameras.rear[0]?.mp ?? 0} MP`,
-      phone: bestCamera.name,
-    },
+    largestScreen: highest(
+      "Largest Screen",
+      (p) => p.screen.sizeIn,
+      (v) => `${v}"`,
+    ),
+    bestCamera: highest(
+      "Best Camera",
+      (p) => p.cameras.rear?.[0]?.mp ?? null,
+      (v) => `${v} MP`,
+    ),
   };
 }

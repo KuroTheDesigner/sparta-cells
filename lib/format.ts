@@ -4,8 +4,9 @@ const currencyFormatter = new Intl.NumberFormat('en-NG', {
   maximumFractionDigits: 0,
 });
 
-export function formatCurrency(value: number): string {
-  return currencyFormatter.format(Math.round(value));
+export function formatCurrency(value: number | null, currency = 'NGN'): string {
+  if (value === null) return 'Price unavailable';
+  return (currency === 'NGN' ? currencyFormatter : new Intl.NumberFormat('en', {style:'currency',currency,maximumFractionDigits:0})).format(Math.round(value));
 }
 
 export function formatNumber(value: number, options: Intl.NumberFormatOptions = {}): string {

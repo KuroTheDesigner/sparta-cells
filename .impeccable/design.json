@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T14:08:00Z",
+  "title": "Design System: Sparta Cells",
+  "extensions": {
+    "motion": [
+      { "name": "plot-coordinates", "value": "220ms ease-out", "purpose": "Show price/battery positions changing after filtering; disabled for reduced motion." },
+      { "name": "research-progress", "value": "1.8s ease-in-out infinite alternate", "purpose": "Indicate active research without asserting a completion percentage." }
+    ],
+    "breakpoints": [
+      { "name": "compact-desktop", "value": "1100px" },
+      { "name": "mobile-workspace", "value": "760px" },
+      { "name": "single-column", "value": "420px" }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "The phone decision workbench",
+    "overview": "An Operate interface: compact controls, aligned specifications, and visible research status help people choose a phone. Lime marks actions and selection; cobalt marks focus and source context; amber marks incomplete research. The user delegated the remaining visual choices.",
+    "keyCharacteristics": [],
+    "rules": [],
+    "dos": [],
+    "donts": []
+  }
+}
